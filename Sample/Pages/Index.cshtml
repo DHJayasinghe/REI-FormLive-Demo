@@ -1,0 +1,29 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+    <p>REI Form Live Test</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var template in Model.Templates)
+            {
+                <tr>
+                    <td>@template.Template_Code</td>
+                    <td>@template.Name</td>
+                    <td><a asp-page="./CreateForm" asp-route-id="@template.Id">Create Form</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

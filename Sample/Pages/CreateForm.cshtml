@@ -1,0 +1,30 @@
+﻿@page
+@model Sample.Pages.CreateFormModel
+@{
+    ViewData["Title"] = "Create Form";
+}
+
+<div class="container">
+    <form method="post">
+        <h2 class="display-6">Create a Form</h2>
+
+        <input type="hidden" asp-for="Id" />
+
+        <div class="row">
+            <div class="col-md-6">
+                <label asp-for="Name" class="control-label"></label>
+                <input type="text" class="form-control" asp-for="Name" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <br />
+                <button type="submit" class="btn-primary">Save Form</button>
+            </div>
+        </div>
+        <div>
+            <br />
+            <a href="@TempData["DeepLink"]" target="_blank">@TempData["DeepLink"]</a>
+        </div>
+    </form>
+</div>
