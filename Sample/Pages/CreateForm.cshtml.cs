@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Newtonsoft.Json;
+using Sample.Services;
 using System.Text;
 
 namespace Sample.Pages;
 
 [BindProperties]
-public class CreateFormModel(IHttpClientFactory clientFactory, IConfiguration configuration) : PageModel
+public class CreateFormModel(IHttpClientFactory clientFactory, IConfiguration configuration, DataLoaderService dataloadedService) : PageModel
 {
     private readonly HttpClient _client = clientFactory.CreateClient("ReiFormsLive");
 
@@ -24,7 +25,7 @@ public class CreateFormModel(IHttpClientFactory clientFactory, IConfiguration co
         var formId = createFormResult.Id;
         await FillFormAsync(formId);
         string token = await CreateUserSessionAsync();
-        TempData["DeepLink"] = $"{(configuration["PortalUrl"].ToString())}/?token={token}#form/{formId}/display";
+        TempData["DeepLink"] = $"{configuration["PortalUrl"]}/?token={token}#form/{formId}/display";
     }
 
     private async Task<string> CreateUserSessionAsync()
@@ -51,16 +52,9 @@ public class CreateFormModel(IHttpClientFactory clientFactory, IConfiguration co
 
     private async Task FillFormAsync(int formId)
     {
-        var fillFormResponse = await _client.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(new
-        {
-            Agency_AddressFull = "Somewhere",
-            Agency_Email_SO = "someone@gmail.com",
-            Agency_Name = "Someplace",
-            Agency_Phone = "+94771110447",
-            Agency_Phone_SO = "fake",
-            Agent_Email = "dhanuka@jrcosfotware.com",
-            Agent_Name = "Dhanuka"
-        }), Encoding.UTF8, "application/json"));
+        var query = dataloadedService.GenerateSQLQuery("[Office].OfficeId=@OfficeID");
+        var data = await dataloadedService.QueryAsync<FormLiveData>(query, new { OfficeID = 50 });
+        var fillFormResponse = await _client.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();
     }
 }

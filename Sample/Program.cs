@@ -1,3 +1,5 @@
+using Sample.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration;
@@ -10,6 +12,7 @@ services.AddHttpClient("ReiFormsLive", client =>
     client.BaseAddress = new Uri(configuration["DeveloperApiBaseUrl"].ToString());
     client.DefaultRequestHeaders.Add("Authorization", $"Basic {configuration["DeveloperApiToken"]}");
 });
+services.AddSingleton<DataLoaderService>();
 
 var app = builder.Build();
 
@@ -25,5 +28,6 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapRazorPages();
+
 
 app.Run();
