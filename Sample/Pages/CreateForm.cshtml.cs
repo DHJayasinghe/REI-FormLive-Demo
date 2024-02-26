@@ -12,11 +12,14 @@ public class CreateFormModel(IHttpClientFactory clientFactory, IConfiguration co
     private readonly HttpClient _client = clientFactory.CreateClient("ReiFormsLive");
 
     public int Id { get; set; }
+    public string? Code { get; set; }
     public string? Name { get; set; }
+    public int? PropertyId { get; set; }
 
-    public void OnGet(int id)
+    public void OnGet(int id, string code)
     {
         Id = id;
+        Code = code;
     }
 
     public async Task OnPostAsync()
@@ -52,8 +55,8 @@ public class CreateFormModel(IHttpClientFactory clientFactory, IConfiguration co
 
     private async Task FillFormAsync(int formId)
     {
-        var query = dataloadedService.GenerateSQLQuery("[Office].OfficeId=@OfficeID");
-        var data = await dataloadedService.QueryAsync<FormLiveData>(query, new { OfficeID = 50 });
+        var query = dataloadedService.GenerateSQLQuery(Code, "[Property].PropertyID=@PropertyId");
+        var data = (await dataloadedService.QueryAsync<object>(query, new { PropertyId })).First();
         var fillFormResponse = await _client.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();
     }

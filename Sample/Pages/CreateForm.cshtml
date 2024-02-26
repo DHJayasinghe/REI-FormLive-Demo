@@ -6,14 +6,20 @@
 
 <div class="container">
     <form method="post">
-        <h2 class="display-6">Create a Form</h2>
+        <h2 class="display-6">Create a Form - @Model.Code</h2>
 
         <input type="hidden" asp-for="Id" />
 
         <div class="row">
             <div class="col-md-6">
-                <label asp-for="Name" class="control-label"></label>
+                <label asp-for="Name" class="control-label">Form Name</label>
                 <input type="text" class="form-control" asp-for="Name" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <label asp-for="PropertyId" class="control-label">Property Id</label>
+                <input type="text" class="form-control" asp-for="PropertyId" />
             </div>
         </div>
         <div class="row">

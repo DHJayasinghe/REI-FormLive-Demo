@@ -21,7 +21,7 @@
                 <tr>
                     <td>@template.Template_Code</td>
                     <td>@template.Name</td>
-                    <td><a asp-page="./CreateForm" asp-route-id="@template.Id">Create Form</a></td>
+                    <td><a asp-page="./CreateForm" asp-route-id="@template.Id" asp-route-code="@template.Template_Code">Create Form</a></td>
                 </tr>
             }
         </tbody>

@@ -1,6 +1,5 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Text;
 
@@ -9,43 +8,57 @@ namespace Sample.Services;
 public class DataLoaderService(IConfiguration configuration)
 {
     // Load from DB table
-    private static readonly Dictionary<string, string> mapping = new()
-    {
-        { "Office.Address", "Agency_AddressFull" },
-        { "Office.Name", "Agency_Name" },
-        { "Office.PhoneNumber", "Agency_Phone" },
-        { "User.Email", "Agent_Email" },
-        { "User.FirstName", "Agent_Name" },
-        { "Office.UserID.Relation", "User.UserID"  } // Define the relationship between Manager and Office
-    };
+    private static readonly IEnumerable<FormLiveColumnMapping> mapping =
+    [
+        new("PM0007", "Office.ABN","Agency_ACN"),
+        new("PM0007", "Office.LegalBusinessName","Agency_LicenceName"),
+        new("PM0007", "Office.Name", "Agency_Name" ),
+        new("PM0007", "Office.PhoneNumber", "Agency_Phone"),
+        new("PM0007","Office.Postcode","Agency_Postcode"),
+        new("PM0007","Office.Suburb","Agency_Suburb"),
+        new("PM0007","Property.Postcode","Premises_Postcode"),
+        new("PM0007","Property.Address1","Premises_Street1"),
+        new("PM0007","Property.Address2","Premises_Street2"),
+        new("PM0007","Property.Suburb","Premises_Suburb"),
+        new("PM0007","Property.Tenant1","Tenant_NameFull"),
+        new("PM0007","Property.Tenant2","Tenant2_NameFull"),
+        new("PM0007","Property.Tenant3","Tenant3_NameFull"),
+        new("PM0007", "Property.OfficeID.Relation", "Office.OfficeID" ),
+        new("PM0002", "User.Email", "Agent_Email" ),
+        new("PM0002", "User.FirstName", "Agent_Name" ),
+        new("PM0002", "Office.UserID.Relation", "User.UserID"  ), // Define the relationship between Manager and Office
+    ];
 
     private readonly IConfiguration _configuration = configuration;
 
-    public string GenerateSQLQuery(string whereClause)
+    public string GenerateSQLQuery(string code, string whereClause)
     {
         var queryBuilder = new StringBuilder("SELECT ");
 
-        foreach (var map in mapping.Where(map => !map.Key.EndsWith("Relation")))
+        bool hasMapping = false;
+        foreach (var map in mapping.Where(map => map.Code == code && !map.Source.EndsWith("Relation")))
         {
-            string[] parts = map.Key.Split('.');
+            hasMapping = true;
+            string[] parts = map.Source.Split('.');
             string tableName = parts[0];
             string columnName = parts[1];
 
-            queryBuilder.Append($"[{columnName}] AS {map.Value}, ");
+            queryBuilder.Append($"[{tableName}].[{columnName}] AS {map.Target}, ");
         }
+        if (!hasMapping) return string.Empty;
 
         queryBuilder
             .Remove(queryBuilder.Length - 2, 2) // Remove the trailing comma and space
             .Append(" FROM ");
 
         // Check if there's a relationship defined for this table
-        foreach (var map in mapping.Where(map => map.Key.EndsWith("Relation")))
+        foreach (var map in mapping.Where(map => map.Code == code && map.Source.EndsWith("Relation")))
         {
-            string[] leftTableAndKeyColumn = map.Key.Replace(".Relation", "").Split('.');
+            string[] leftTableAndKeyColumn = map.Source.Replace(".Relation", "").Split('.');
             string leftTableName = leftTableAndKeyColumn[0];
             string leftTableKeyColumnName = leftTableAndKeyColumn[1];
 
-            string[] rightTableAndKeyColumn = map.Value.Split(".");
+            string[] rightTableAndKeyColumn = map.Target.Split(".");
             string rightTableName = rightTableAndKeyColumn[0];
             string rightTableKeyColumnName = rightTableAndKeyColumn[1];
 
@@ -79,3 +92,6 @@ public class FormLiveData
     public string Agent_Email { get; set; }
     public string Agent_Name { get; set; }
 }
+
+
+public record FormLiveColumnMapping(string Code, string Source, string Target);
