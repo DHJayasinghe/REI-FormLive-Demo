@@ -84,14 +84,4 @@ public class DataLoaderService(IConfiguration configuration)
 
 }
 
-public class FormLiveData
-{
-    public string Agency_AddressFull { get; set; }
-    public string Agency_Name { get; set; }
-    public string Agency_Phone { get; set; }
-    public string Agent_Email { get; set; }
-    public string Agent_Name { get; set; }
-}
-
-
 public record FormLiveColumnMapping(string Code, string Source, string Target);
