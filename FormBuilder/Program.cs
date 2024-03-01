@@ -4,8 +4,6 @@ using FormBuilder.Models.Domain;
 using FormBuilder.Models.DTO;
 using FormBuilder.Services;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,11 +39,11 @@ app.MapPost("/clients", async (SaveClientRequest request, TableServiceClient ser
         return Results.Problem(ex.Message);
     }
 });
-app.MapPut("/form/mappings/{code}", async (string code, [FromHeader(Name = "X-API-Key")] string apiKey, SaveMappingRequest request, TableServiceClient serviceClient) =>
+app.MapPut("/form/mappings", async ([FromHeader(Name = "X-API-Key")] string apiKey, SaveMappingRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Mapping");
     var clientId = apiKey.Replace("-", "");
-    var entities = request.Mappings.Select(entry => new MappingEntry(clientId, code, entry.Source, entry.Target));
+    var entities = request.Mappings.Select(entry => new MappingEntry(clientId, request.Code, entry.Source, entry.Target));
 
     try
     {
@@ -59,16 +57,10 @@ app.MapPut("/form/mappings/{code}", async (string code, [FromHeader(Name = "X-AP
     }
 });
 app.MapGet("/form/templates", async (IntegrationService service) => await service.GetTemplatesAsync());
-app.MapPost("/form/{id}", async (int id, [FromBody] string name, IHttpClientFactory clientFactory) =>
+app.MapPost("/form", async (CreateFormRequest request, IntegrationService service) =>
 {
-    var _client = clientFactory.CreateClient("ReiFormsLive");
-    FormPostResponse createFormResult = await CreateFormAsync(_client, id, name);
-    var formId = createFormResult.Id;
-    await FillFormAsync(formId);
-    string token = await CreateUserSessionAsync(_client);
-    return Results.Ok($"{configuration["PortalUrl"]}/?token={token}#form/{formId}/display");
+    var url = await service.CreateFormAsync(request.Id, request.Name, request.Code, request.Parameters);
+    return Results.Ok(url);
 });
-
-
 
 app.Run();
