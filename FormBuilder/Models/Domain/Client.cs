@@ -14,7 +14,7 @@ public class Client : ITableEntity
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
 
-    private Client() { }
+    public Client() { }
     public Client(string name, string connectionString) : this()
     {
         Name = name;

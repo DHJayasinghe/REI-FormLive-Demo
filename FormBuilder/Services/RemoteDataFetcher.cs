@@ -2,16 +2,13 @@
 using Dapper;
 using FormBuilder.Models.Domain;
 using Microsoft.Data.SqlClient;
-using System.Collections.Concurrent;
 using System.Data;
 using System.Text;
 
 namespace FormBuilder.Services;
 
-public class RemoteDataFetcher(IConfiguration configuration, TableServiceClient tableServiceClient)
+public class RemoteDataFetcher(TableServiceClient tableServiceClient)
 {
-    private readonly IConfiguration _configuration = configuration;
-
     public string GenerateSQLQuery(string clientId, string code)
     {
         var queryBuilder = new StringBuilder("SELECT ");
@@ -57,21 +54,18 @@ public class RemoteDataFetcher(IConfiguration configuration, TableServiceClient 
 
         var whereClause = mapping.Where(map => map.Code == code && map.Source.StartsWith("WhereClause")).FirstOrDefault()?.Target;
         if (!string.IsNullOrEmpty(whereClause))
-        {
             queryBuilder.Append($" WHERE {whereClause}");
-        }
 
         return queryBuilder.ToString();
     }
 
-    private SqlConnection Connection => new(_configuration.GetConnectionString("SampleDb"));
-
-    public async Task<List<TResult>> QueryAsync<TResult>(string spName, object parameters = null)
+    public async Task<List<TResult>> QueryAsync<TResult>(string clientId, string query, object parameters)
     {
-        using IDbConnection conn = Connection;
-        return (await conn.QueryAsync<TResult>(spName, parameters, commandType: CommandType.Text, commandTimeout: (int)TimeSpan.FromMinutes(2).TotalSeconds)).ToList();
+        var table = tableServiceClient.GetTableClient("Client");
+        var connectionString = (table.GetEntity<Client>(clientId, clientId)).Value.ConnectionString;
+
+        using IDbConnection conn = new SqlConnection(connectionString);
+        return (await conn.QueryAsync<TResult>(query, parameters, commandType: CommandType.Text, commandTimeout: (int)TimeSpan.FromMinutes(2).TotalSeconds)).ToList();
     }
 
 }
-
-public record DataMapEntry(string Code, string Source, string Target);

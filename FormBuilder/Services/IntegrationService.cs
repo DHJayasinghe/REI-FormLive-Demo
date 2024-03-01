@@ -7,7 +7,7 @@ using System.Text;
 
 namespace FormBuilder.Services;
 
-public class IntegrationService(IHttpClientFactory httpClientFactory, IConfiguration configuration, RemoteDataFetcher dataloadedService)
+public class IntegrationService(IHttpClientFactory httpClientFactory, IConfiguration configuration, TableServiceClient tableServiceClient, RemoteDataFetcher dataloadedService)
 {
     private readonly HttpClient _client = httpClientFactory.CreateClient("ReiFormsLive");
 
@@ -41,6 +41,9 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         await FillFormAsync(clientId, formId, code, parameters);
         string token = await CreateUserSessionAsync(_client);
 
+        var table = tableServiceClient.GetTableClient("Client");
+        var connectionString = (table.GetEntity<Client>(clientId, clientId)).Value;
+
         // configuration["PortalUrl"] -> should goes to client
         var url = $"{configuration["PortalUrl"]}/?token={token}#form/{formId}/display";
 
@@ -56,7 +59,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
             requestDictionary[kvp.Key] = kvp.Value.ToString();
 
         var query = dataloadedService.GenerateSQLQuery(clientId, code);
-        var data = (await dataloadedService.QueryAsync<object>(query, requestObject as object)).First();
+        var data = (await dataloadedService.QueryAsync<object>(clientId, query, requestObject as object)).First();
         var fillFormResponse = await _client.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();
     }
