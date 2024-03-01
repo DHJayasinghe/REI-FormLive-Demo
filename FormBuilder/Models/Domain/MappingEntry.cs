@@ -7,13 +7,13 @@ public class MappingEntry : ITableEntity
 {
     public string PartitionKey { get; set; }
     public string RowKey { get; set; }
-    public string Code { get; private set; }
+    public string Code { get; set; }
     public string Target { get; set; }
     public string Source { get; set; }
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
 
-    private MappingEntry() { }
+    public MappingEntry() { }
     public MappingEntry(string clientId, string code, string source, string target) : this()
     {
         PartitionKey = clientId;

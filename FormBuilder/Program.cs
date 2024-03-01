@@ -10,16 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 var configuration = builder.Configuration;
 var services = builder.Services;
 
-var tableServiceClient = new TableServiceClient(configuration.GetConnectionString("ConfigDb"));
-services.AddScoped(_ => tableServiceClient);
+services.AddSingleton(_ => new TableServiceClient(configuration.GetConnectionString("ConfigDb")).CreateSchemaIfNotExist());
 services.RegisterIntegration(configuration);
 services.AddSingleton<RemoteDataFetcher>();
-
-
-tableServiceClient.GetTableClient("Client").CreateIfNotExists();
-tableServiceClient.GetTableClient("Mapping").CreateIfNotExists();
-tableServiceClient.GetTableClient("Organization").CreateIfNotExists();
-
 
 var app = builder.Build();
 app.UseHttpsRedirection();
@@ -57,9 +50,10 @@ app.MapPut("/form/mappings", async ([FromHeader(Name = "X-API-Key")] string apiK
     }
 });
 app.MapGet("/form/templates", async (IntegrationService service) => await service.GetTemplatesAsync());
-app.MapPost("/form", async (CreateFormRequest request, IntegrationService service) =>
+app.MapPost("/form", async ([FromHeader(Name = "X-API-Key")] string apiKey, CreateFormRequest request, IntegrationService service) =>
 {
-    var url = await service.CreateFormAsync(request.Id, request.Name, request.Code, request.Parameters);
+    var clientId = apiKey.Replace("-", "");
+    var url = await service.CreateFormAsync(clientId, request.Id, request.Name, request.Code, request.Parameters);
     return Results.Ok(url);
 });
 

@@ -1,9 +1,8 @@
-﻿using FormBuilder.Models.Domain;
+﻿using Azure.Data.Tables;
+using FormBuilder.Models.Domain;
 using FormBuilder.Models.DTO;
 using Newtonsoft.Json;
-using System.Collections.Generic;
 using System.Dynamic;
-using System.Reflection;
 using System.Text;
 
 namespace FormBuilder.Services;
@@ -28,7 +27,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         return token;
     }
 
-    public async Task<string> CreateFormAsync(int id, string name, string code, Dictionary<string, object> parameters)
+    public async Task<string> CreateFormAsync(string clientId, int id, string name, string code, Dictionary<string, object> parameters)
     {
         var formId = (await (await _client.PostAsJsonAsync($"/user-templates/{id}/form", new
         {
@@ -39,7 +38,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         .Content.ReadFromJsonAsync<FormPostResponse>())
         .Id;
 
-        await FillFormAsync(formId, code, parameters);
+        await FillFormAsync(clientId, formId, code, parameters);
         string token = await CreateUserSessionAsync(_client);
 
         // configuration["PortalUrl"] -> should goes to client
@@ -48,7 +47,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         return url;
     }
 
-    private async Task FillFormAsync(int formId, string code, Dictionary<string,object> parameters)
+    private async Task FillFormAsync(string clientId, int formId, string code, Dictionary<string, object> parameters)
     {
         dynamic requestObject = new ExpandoObject();
         var requestDictionary = (IDictionary<string, object>)requestObject;
@@ -56,8 +55,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         foreach (var kvp in parameters)
             requestDictionary[kvp.Key] = kvp.Value.ToString();
 
-        // needs to go to mapping as well .Predicate
-        var query = dataloadedService.GenerateSQLQuery(code, "[Property].PropertyID=@propertyId");
+        var query = dataloadedService.GenerateSQLQuery(clientId, code);
         var data = (await dataloadedService.QueryAsync<object>(query, requestObject as object)).First();
         var fillFormResponse = await _client.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();
@@ -75,5 +73,13 @@ public static class IntegrationServiceExtension
         });
         services.AddSingleton<IntegrationService>();
         return services;
+    }
+
+    public static TableServiceClient CreateSchemaIfNotExist(this TableServiceClient tableServiceClient)
+    {
+        tableServiceClient.GetTableClient("Client").CreateIfNotExists();
+        tableServiceClient.GetTableClient("Mapping").CreateIfNotExists();
+        tableServiceClient.GetTableClient("Organization").CreateIfNotExists();
+        return tableServiceClient;
     }
 }
