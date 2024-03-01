@@ -1,5 +1,4 @@
-﻿using Azure.Data.Tables;
-using Dapper;
+﻿using Dapper;
 using FormBuilder.Models.Domain;
 using Microsoft.Data.SqlClient;
 using System.Data;
@@ -7,37 +6,47 @@ using System.Text;
 
 namespace FormBuilder.Services;
 
-public class RemoteDataFetcher(TableServiceClient tableServiceClient)
+public class RemoteDataFetcher(DataAccessService dataAccessService)
 {
-    public string GenerateSQLQuery(string clientId, string code)
+    public async Task<string> GenerateSQLQueryAsync(string clientId, string code)
     {
-        var queryBuilder = new StringBuilder("SELECT ");
+        var mappings = await dataAccessService.GetMappingsAsync(clientId);
+        if (!mappings.Any()) return string.Empty;
 
-        var table = tableServiceClient.GetTableClient("Mapping");
-        var mapping = new List<MappingEntry>();
-        var queryEntries = table.Query<MappingEntry>(d => d.PartitionKey == clientId);
-        foreach (var entry in queryEntries)
-        {
-            mapping.Add(entry);
-        }
+        var queryBuilder = new StringBuilder();
 
-        bool hasMapping = false;
-        foreach (var map in mapping.Where(map => map.Code == code && !map.Source.EndsWith("Relation") && !map.Source.StartsWith("WhereClause")))
+        AppendSelectedColumns(code, mappings, queryBuilder);
+        AppendRelationJoins(code, queryBuilder, mappings);
+        AppendWhereClauses(code, queryBuilder, mappings);
+
+        return queryBuilder.ToString();
+    }
+
+    private static void AppendSelectedColumns(string code, IEnumerable<MappingEntry> mappings, StringBuilder queryBuilder)
+    {
+        queryBuilder.Append("SELECT ");
+        foreach (var map in mappings.Where(map => map.Code == code && !map.Source.EndsWith("Relation") && !map.Source.StartsWith("WhereClause")))
         {
-            hasMapping = true;
             string[] parts = map.Source.Split('.');
             string tableName = parts[0];
             string columnName = parts[1];
 
             queryBuilder.Append($"[{tableName}].[{columnName}] AS {map.Target}, ");
         }
-        if (!hasMapping) return string.Empty;
+        // Remove the trailing comma and space
+        queryBuilder.Remove(queryBuilder.Length - 2, 2);
+    }
 
-        queryBuilder
-            .Remove(queryBuilder.Length - 2, 2) // Remove the trailing comma and space
-            .Append(" FROM ");
+    private static void AppendWhereClauses(string code, StringBuilder queryBuilder, IEnumerable<MappingEntry> mapping)
+    {
+        var whereClause = mapping.Where(map => map.Code == code && map.Source.StartsWith("WhereClause")).FirstOrDefault()?.Target;
+        if (!string.IsNullOrEmpty(whereClause))
+            queryBuilder.Append($" WHERE {whereClause}");
+    }
 
-        // Check if there's a relationship defined for this table
+    private static void AppendRelationJoins(string code, StringBuilder queryBuilder, IEnumerable<MappingEntry> mapping)
+    {
+        queryBuilder.Append(" FROM ");
         foreach (var map in mapping.Where(map => map.Code == code && map.Source.EndsWith("Relation") && !map.Source.StartsWith("WhereClause")))
         {
             string[] leftTableAndKeyColumn = map.Source.Replace(".Relation", "").Split('.');
@@ -51,21 +60,13 @@ public class RemoteDataFetcher(TableServiceClient tableServiceClient)
             queryBuilder.Append($"[{leftTableName}] LEFT JOIN [{rightTableName}]");
             queryBuilder.Append($" ON [{leftTableName}].{leftTableKeyColumnName} = [{rightTableName}].{rightTableKeyColumnName}");
         }
-
-        var whereClause = mapping.Where(map => map.Code == code && map.Source.StartsWith("WhereClause")).FirstOrDefault()?.Target;
-        if (!string.IsNullOrEmpty(whereClause))
-            queryBuilder.Append($" WHERE {whereClause}");
-
-        return queryBuilder.ToString();
     }
 
     public async Task<List<TResult>> QueryAsync<TResult>(string clientId, string query, object parameters)
     {
-        var table = tableServiceClient.GetTableClient("Client");
-        var connectionString = (table.GetEntity<Client>(clientId, clientId)).Value.ConnectionString;
+        var connectionString = (await dataAccessService.GetClientAsync(clientId)).ConnectionString;
 
         using IDbConnection conn = new SqlConnection(connectionString);
         return (await conn.QueryAsync<TResult>(query, parameters, commandType: CommandType.Text, commandTimeout: (int)TimeSpan.FromMinutes(2).TotalSeconds)).ToList();
     }
-
 }

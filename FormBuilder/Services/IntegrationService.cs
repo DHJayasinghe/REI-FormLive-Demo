@@ -7,22 +7,23 @@ using System.Text;
 
 namespace FormBuilder.Services;
 
-public class IntegrationService(IHttpClientFactory httpClientFactory, IConfiguration configuration, TableServiceClient tableServiceClient, RemoteDataFetcher dataloadedService)
+public class IntegrationService(IHttpClientFactory httpClientFactory, IConfiguration configuration, DataAccessService dataAccessService, RemoteDataFetcher dataloadedService)
 {
-    private readonly HttpClient _client = httpClientFactory.CreateClient("ReiFormsLive");
-
-    public async Task<IEnumerable<UserTemplate>> GetTemplatesAsync()
+    public async Task<IEnumerable<UserTemplate>> GetTemplatesAsync(string clientId, string organizationId)
     {
+        using var _client = await GetApiClientAsync(clientId, organizationId);
         var response = await _client.GetAsync("/user-templates");
         return await response.Content.ReadFromJsonAsync<IEnumerable<UserTemplate>>();
     }
 
-    private HttpClient GetApiClient(string clientId, string organizationId)
+    private async Task<HttpClient> GetApiClientAsync(string clientId, string organizationId)
     {
-        var tableClient = tableServiceClient.GetTableClient("Organization");
-        var token = tableClient.GetEntity<Organization>(clientId, organizationId).Value.Token;
-        var deploperApiToken = $"{configuration["DeveloperApiKey"]}:{token}";
+        var _client = httpClientFactory.CreateClient("ReiFormsLive");
+        var token = (await dataAccessService.GetOrganizationAsync(clientId, organizationId)).Token;
+
+        var deploperApiToken = $"{configuration.GetValue<string>("DeveloperApiKey")}:{token}";
         _client.DefaultRequestHeaders.Add("Authorization", $"Basic {Base64Encode(deploperApiToken)}");
+
         return _client;
     }
 
@@ -44,7 +45,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
 
     public async Task<string> CreateFormAsync(string clientId, string organizationId, int id, string name, string code, Dictionary<string, object> parameters)
     {
-        var apiClient = GetApiClient(clientId, organizationId);
+        using var apiClient = await GetApiClientAsync(clientId, organizationId);
         var formId = (await (await apiClient.PostAsJsonAsync($"/user-templates/{id}/form", new
         {
             name,
@@ -54,11 +55,10 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         .Content.ReadFromJsonAsync<FormPostResponse>())
         .Id;
 
-        await FillFormAsync(clientId, formId, code, parameters);
+        await FillFormAsync(apiClient, clientId, formId, code, parameters);
         string token = await CreateUserSessionAsync(apiClient);
 
-        var table = tableServiceClient.GetTableClient("Client");
-        var portalUrl = (table.GetEntity<Organization>(clientId, organizationId)).Value.PortalUrl;
+        var portalUrl = (await dataAccessService.GetOrganizationAsync(clientId, organizationId)).PortalUrl;
 
         // configuration["PortalUrl"] -> should goes to client
         var url = $"{portalUrl}/?token={token}#form/{formId}/display";
@@ -66,7 +66,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         return url;
     }
 
-    private async Task FillFormAsync(string clientId, int formId, string code, Dictionary<string, object> parameters)
+    private async Task FillFormAsync(HttpClient apiClient, string clientId, int formId, string code, Dictionary<string, object> parameters)
     {
         dynamic requestObject = new ExpandoObject();
         var requestDictionary = (IDictionary<string, object>)requestObject;
@@ -74,9 +74,9 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         foreach (var kvp in parameters)
             requestDictionary[kvp.Key] = kvp.Value.ToString();
 
-        var query = dataloadedService.GenerateSQLQuery(clientId, code);
+        var query = await dataloadedService.GenerateSQLQueryAsync(clientId, code);
         var data = (await dataloadedService.QueryAsync<object>(clientId, query, requestObject as object)).First();
-        var fillFormResponse = await _client.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
+        var fillFormResponse = await apiClient.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();
     }
 }
@@ -85,11 +85,16 @@ public static class IntegrationServiceExtension
 {
     public static IServiceCollection RegisterIntegration(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton(_ => new TableServiceClient(configuration.GetConnectionString("ConfigDb")).CreateSchemaIfNotExist());
+        services.AddHttpContextAccessor();
         services.AddHttpClient("ReiFormsLive", client =>
         {
             client.BaseAddress = new Uri(configuration["DeveloperApiBaseUrl"].ToString());
         });
+        services.AddSingleton<DataAccessService>();
         services.AddSingleton<IntegrationService>();
+        services.AddSingleton<RemoteDataFetcher>();
+        services.AddScoped<Identity>();
         return services;
     }
 
