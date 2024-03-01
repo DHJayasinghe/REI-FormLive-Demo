@@ -32,10 +32,24 @@ app.MapPost("/clients", async (SaveClientRequest request, TableServiceClient ser
         return Results.Problem(ex.Message);
     }
 });
+app.MapPost("/clients/{clientId}/organizations", async (string clientId, SaveOrganizationRequest request, TableServiceClient serviceClient) =>
+{
+    var tableClient = serviceClient.GetTableClient("Organization");
+    var entity = new Organization(request.Id, clientId, request.PortalUrl, request.Token);
+    try
+    {
+        await tableClient.AddEntityAsync(entity);
+        return Results.Created();
+    }
+    catch (RequestFailedException ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
 app.MapPut("/form/mappings", async ([FromHeader(Name = "X-API-Key")] string apiKey, SaveMappingRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Mapping");
-    var clientId = apiKey.Replace("-", "");
+    var clientId = apiKey.Split(":")[0].Replace("-", "");
     var entities = request.Mappings.Select(entry => new MappingEntry(clientId, request.Code, entry.Source, entry.Target));
 
     try
@@ -52,8 +66,8 @@ app.MapPut("/form/mappings", async ([FromHeader(Name = "X-API-Key")] string apiK
 app.MapGet("/form/templates", async (IntegrationService service) => await service.GetTemplatesAsync());
 app.MapPost("/form", async ([FromHeader(Name = "X-API-Key")] string apiKey, CreateFormRequest request, IntegrationService service) =>
 {
-    var clientId = apiKey.Replace("-", "");
-    var url = await service.CreateFormAsync(clientId, request.Id, request.Name, request.Code, request.Parameters);
+    var clientId = apiKey.Split(":")[0].Replace("-", "");
+    var url = await service.CreateFormAsync(clientId, apiKey.Split(":")[1], request.Id, request.Name, request.Code, request.Parameters);
     return Results.Ok(url);
 });
 

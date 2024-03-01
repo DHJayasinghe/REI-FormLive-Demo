@@ -17,6 +17,21 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         return await response.Content.ReadFromJsonAsync<IEnumerable<UserTemplate>>();
     }
 
+    private HttpClient GetApiClient(string clientId, string organizationId)
+    {
+        var tableClient = tableServiceClient.GetTableClient("Organization");
+        var token = tableClient.GetEntity<Organization>(clientId, organizationId).Value.Token;
+        var deploperApiToken = $"{configuration["DeveloperApiKey"]}:{token}";
+        _client.DefaultRequestHeaders.Add("Authorization", $"Basic {Base64Encode(deploperApiToken)}");
+        return _client;
+    }
+
+    private static string Base64Encode(string plainText)
+    {
+        var plainTextBytes = Encoding.UTF8.GetBytes(plainText);
+        return Convert.ToBase64String(plainTextBytes);
+    }
+
     private static async Task<string> CreateUserSessionAsync(HttpClient _client)
     {
         var createSessionResponse = await _client.PostAsync("/user/session", new StringContent("", Encoding.UTF8, "application/json"));
@@ -27,9 +42,10 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         return token;
     }
 
-    public async Task<string> CreateFormAsync(string clientId, int id, string name, string code, Dictionary<string, object> parameters)
+    public async Task<string> CreateFormAsync(string clientId, string organizationId, int id, string name, string code, Dictionary<string, object> parameters)
     {
-        var formId = (await (await _client.PostAsJsonAsync($"/user-templates/{id}/form", new
+        var apiClient = GetApiClient(clientId, organizationId);
+        var formId = (await (await apiClient.PostAsJsonAsync($"/user-templates/{id}/form", new
         {
             name,
             isPrivate = false
@@ -39,13 +55,13 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IConfigura
         .Id;
 
         await FillFormAsync(clientId, formId, code, parameters);
-        string token = await CreateUserSessionAsync(_client);
+        string token = await CreateUserSessionAsync(apiClient);
 
         var table = tableServiceClient.GetTableClient("Client");
-        var connectionString = (table.GetEntity<Client>(clientId, clientId)).Value;
+        var portalUrl = (table.GetEntity<Organization>(clientId, organizationId)).Value.PortalUrl;
 
         // configuration["PortalUrl"] -> should goes to client
-        var url = $"{configuration["PortalUrl"]}/?token={token}#form/{formId}/display";
+        var url = $"{portalUrl}/?token={token}#form/{formId}/display";
 
         return url;
     }
@@ -72,7 +88,6 @@ public static class IntegrationServiceExtension
         services.AddHttpClient("ReiFormsLive", client =>
         {
             client.BaseAddress = new Uri(configuration["DeveloperApiBaseUrl"].ToString());
-            client.DefaultRequestHeaders.Add("Authorization", $"Basic {configuration["DeveloperApiToken"]}");
         });
         services.AddSingleton<IntegrationService>();
         return services;
