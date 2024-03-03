@@ -58,7 +58,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IOptions<R
         .Content.ReadFromJsonAsync<FormPostResponse>())
         .Id;
 
-        await FillFormAsync(apiClient, clientId, formId, code, parameters);
+        await FillFormAsync(apiClient, clientId, organizationId, formId, code, parameters);
         string token = await CreateUserSessionAsync(apiClient);
 
         var state = (await dataAccessService.GetOrganizationAsync(clientId, organizationId)).State;
@@ -68,7 +68,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IOptions<R
         return url;
     }
 
-    private async Task FillFormAsync(HttpClient apiClient, string clientId, int formId, string code, Dictionary<string, object> parameters)
+    private async Task FillFormAsync(HttpClient apiClient, string clientId, string organizationId, int formId, string code, Dictionary<string, object> parameters)
     {
         dynamic requestObject = new ExpandoObject();
         var requestDictionary = (IDictionary<string, object>)requestObject;
@@ -76,7 +76,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IOptions<R
         foreach (var kvp in parameters)
             requestDictionary[kvp.Key] = kvp.Value.ToString();
 
-        var query = await dataloadedService.GenerateSQLQueryAsync(clientId, code);
+        var query = await dataloadedService.GenerateSQLQueryAsync(clientId, organizationId, code);
         var data = (await dataloadedService.QueryAsync<object>(clientId, query, requestObject as object)).First();
         var fillFormResponse = await apiClient.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();

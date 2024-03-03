@@ -1,10 +1,8 @@
 using Azure;
 using Azure.Data.Tables;
-using FormBuilder.Models.Configs;
 using FormBuilder.Models.DAOs;
 using FormBuilder.Models.DTO;
 using FormBuilder.Services;
-using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,11 +14,7 @@ services.RegisterIntegration(configuration);
 var app = builder.Build();
 app.UseHttpsRedirection();
 
-app.MapGet("/index", (IOptions<REIFormConfig> options) =>
-{
-    var val = options.Value;
-    return "Welcome to Form-Builder API - v0.1.0";
-});
+app.MapGet("/index", () => "Welcome to Form-Builder API - v0.1.0");
 app.MapPost("/clients", async (SaveClientRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Client");
@@ -35,14 +29,14 @@ app.MapPost("/clients", async (SaveClientRequest request, TableServiceClient ser
         return Results.Problem(ex.Message);
     }
 });
-app.MapPost("/clients/{clientId}/organizations", async (string clientId, SaveOrganizationRequest request, TableServiceClient serviceClient) =>
+app.MapPut("/clients/{clientId}/organizations", async (string clientId, SaveOrganizationRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Organization");
-    var entity = new Organization(request.Id, clientId, request.PortalUrl, request.Token);
+    var entity = new Organization(request.Id, clientId, request.State, request.Token);
     try
     {
-        await tableClient.AddEntityAsync(entity);
-        return Results.Created();
+        await tableClient.UpsertEntityAsync(entity);
+        return Results.Ok();
     }
     catch (RequestFailedException ex)
     {
@@ -52,7 +46,7 @@ app.MapPost("/clients/{clientId}/organizations", async (string clientId, SaveOrg
 app.MapPut("/form/mappings", async (Identity identity, SaveMappingRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Mapping");
-    var entities = request.Mappings.Select(entry => new MappingEntry(identity.ClientId, request.Code, entry.Source, entry.Target));
+    var entities = request.Mappings.Select(entry => new MappingEntry(identity.ClientId, identity.OrganizationId, request.Code, entry.Source, entry.Target));
 
     try
     {

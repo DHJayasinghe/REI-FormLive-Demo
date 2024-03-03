@@ -20,8 +20,8 @@ public class Client : ITableEntity
         Name = name;
         ConnectionString = connectionString;
         ApiKey = Guid.NewGuid().ToString();
-        PartitionKey = ApiKey.Replace("-", "");
-        RowKey = PartitionKey;
+        PartitionKey = ApiKey;
+        RowKey = "NA";
         Timestamp = DateTimeOffset.UtcNow;
     }
 }

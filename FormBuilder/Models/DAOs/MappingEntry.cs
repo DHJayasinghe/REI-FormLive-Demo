@@ -14,9 +14,9 @@ public class MappingEntry : ITableEntity
     public ETag ETag { get; set; }
 
     public MappingEntry() { }
-    public MappingEntry(string clientId, string code, string source, string target) : this()
+    public MappingEntry(string clientId, string organizationId, string code, string source, string target) : this()
     {
-        PartitionKey = clientId;
+        PartitionKey = clientId + ":" + organizationId;
         RowKey = code + "-" + target;
         Code = code;
         Target = target;

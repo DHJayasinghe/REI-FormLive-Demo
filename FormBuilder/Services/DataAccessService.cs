@@ -16,15 +16,13 @@ public class DataAccessService(TableServiceClient tableServiceClient)
     public async Task<Client> GetClientAsync(string clientId)
     {
         var table = tableServiceClient.GetTableClient("Client");
-        var partitionKey = clientId.Replace("-", "");
-
-        return (await table.GetEntityAsync<Client>(partitionKey, partitionKey)).Value;
+        return (await table.GetEntityAsync<Client>(clientId, "NA")).Value;
     }
 
-    public async Task<IEnumerable<MappingEntry>> GetMappingsAsync(string clientId)
+    public async Task<IEnumerable<MappingEntry>> GetMappingsAsync(string clientId, string organizationId)
     {
         var table = tableServiceClient.GetTableClient("Mapping");
-        var partitionKey = clientId.Replace("-", "");
+        var partitionKey = clientId + ":" + organizationId;
 
         var queryEntries = table.Query<MappingEntry>(d => d.PartitionKey == partitionKey);
         return await Task.FromResult(queryEntries.Select(entry => entry));
