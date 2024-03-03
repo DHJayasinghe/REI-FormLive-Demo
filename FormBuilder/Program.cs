@@ -15,6 +15,8 @@ var app = builder.Build();
 app.UseHttpsRedirection();
 
 app.MapGet("/index", () => "Welcome to Form-Builder API - v0.1.0");
+
+#region Administrative APIs
 app.MapPost("/clients", async (SaveClientRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Client");
@@ -43,6 +45,9 @@ app.MapPut("/clients/{clientId}/organizations", async (string clientId, SaveOrga
         return Results.Problem(ex.Message);
     }
 });
+#endregion
+
+#region Client APIs
 app.MapPut("/form/mappings", async (Identity identity, SaveMappingRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Mapping");
@@ -65,5 +70,6 @@ app.MapPost("/form", async (Identity identity, CreateFormRequest request, Integr
     var url = await service.CreateFormAsync(identity.ClientId, identity.OrganizationId, request.Id, request.Name, request.Code, request.Parameters);
     return Results.Ok(url);
 });
+#endregion
 
 app.Run();
