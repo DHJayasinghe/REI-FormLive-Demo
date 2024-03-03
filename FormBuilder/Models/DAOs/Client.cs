@@ -1,7 +1,7 @@
 ﻿using Azure;
 using Azure.Data.Tables;
 
-namespace FormBuilder.Models.Domain;
+namespace FormBuilder.Models.DAOs;
 
 public class Client : ITableEntity
 {

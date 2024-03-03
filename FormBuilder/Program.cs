@@ -1,8 +1,10 @@
 using Azure;
 using Azure.Data.Tables;
-using FormBuilder.Models.Domain;
+using FormBuilder.Models.Configs;
+using FormBuilder.Models.DAOs;
 using FormBuilder.Models.DTO;
 using FormBuilder.Services;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +16,11 @@ services.RegisterIntegration(configuration);
 var app = builder.Build();
 app.UseHttpsRedirection();
 
-app.MapGet("/index", () => "Welcome to Form-Builder API - v0.1.0");
+app.MapGet("/index", (IOptions<REIFormConfig> options) =>
+{
+    var val = options.Value;
+    return "Welcome to Form-Builder API - v0.1.0";
+});
 app.MapPost("/clients", async (SaveClientRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Client");

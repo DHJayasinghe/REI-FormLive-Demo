@@ -1,5 +1,5 @@
 ﻿using Dapper;
-using FormBuilder.Models.Domain;
+using FormBuilder.Models.DAOs;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using System.Text;
