@@ -8,9 +8,9 @@ namespace FormBuilder.Services;
 
 public class RemoteDataFetcher(DataAccessService dataAccessService)
 {
-    public async Task<string> GenerateSQLQueryAsync(string clientId,string organizationId, string code)
+    public async Task<string> GenerateSQLQueryAsync(string clientId, string code)
     {
-        var mappings = await dataAccessService.GetMappingsAsync(clientId, organizationId);
+        var mappings = await dataAccessService.GetMappingsAsync(clientId);
         if (!mappings.Any()) return string.Empty;
 
         var queryBuilder = new StringBuilder();

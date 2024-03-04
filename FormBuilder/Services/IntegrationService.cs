@@ -76,7 +76,7 @@ public class IntegrationService(IHttpClientFactory httpClientFactory, IOptions<R
         foreach (var kvp in parameters)
             requestDictionary[kvp.Key] = kvp.Value.ToString();
 
-        var query = await dataloadedService.GenerateSQLQueryAsync(clientId, organizationId, code);
+        var query = await dataloadedService.GenerateSQLQueryAsync(clientId, code);
         var data = (await dataloadedService.QueryAsync<object>(clientId, query, requestObject as object)).First();
         var fillFormResponse = await apiClient.PutAsync($"/forms/{formId}/save", new StringContent(JsonConvert.SerializeObject(data), Encoding.UTF8, "application/json"));
         fillFormResponse.EnsureSuccessStatusCode();

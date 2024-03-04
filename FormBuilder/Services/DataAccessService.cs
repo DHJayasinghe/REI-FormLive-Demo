@@ -19,10 +19,10 @@ public class DataAccessService(TableServiceClient tableServiceClient)
         return (await table.GetEntityAsync<Client>(clientId, "NA")).Value;
     }
 
-    public async Task<IEnumerable<MappingEntry>> GetMappingsAsync(string clientId, string organizationId)
+    public async Task<IEnumerable<MappingEntry>> GetMappingsAsync(string clientId)
     {
         var table = tableServiceClient.GetTableClient("Mapping");
-        var partitionKey = clientId + ":" + organizationId;
+        var partitionKey = clientId;
 
         var queryEntries = table.Query<MappingEntry>(d => d.PartitionKey == partitionKey);
         return await Task.FromResult(queryEntries.Select(entry => entry));

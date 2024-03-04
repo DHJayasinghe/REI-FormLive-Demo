@@ -51,7 +51,7 @@ app.MapPut("/clients/{clientId}/organizations", async (string clientId, SaveOrga
 app.MapPut("/form/mappings", async (Identity identity, SaveMappingRequest request, TableServiceClient serviceClient) =>
 {
     var tableClient = serviceClient.GetTableClient("Mapping");
-    var entities = request.Mappings.Select(entry => new MappingEntry(identity.ClientId, identity.OrganizationId, request.Code, entry.Source, entry.Target));
+    var entities = request.Mappings.Select(entry => new MappingEntry(identity.ClientId, request.Code, entry.Source, entry.Target));
 
     try
     {
