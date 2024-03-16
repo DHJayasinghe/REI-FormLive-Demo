@@ -10,8 +10,8 @@ internal class Program
     private static void Main(string[] args)
     {
         string sampleImagePath = "C:\\Users\\DhanukaJayasinghe\\Downloads\\leaves-6975462_1280.webp";
-        string destinationImageFolderPath = @"C:\Users\DhanukaJayasinghe\Downloads\Sample\";
-        string destinationZipFolderPath = @"C:\Users\DhanukaJayasinghe\Downloads\Zip\";
+        string destinationImageFolderPath = Path.GetTempPath() + "\\Sample\\";
+        string destinationZipFolderPath = Path.GetTempPath() + "\\Zip\\";
 
         var builder = WebApplication.CreateBuilder(args);
 
@@ -23,43 +23,6 @@ internal class Program
         var stopwatch = new Stopwatch();
 
         app.MapGet("", () => "Fast uploader test API running");
-        app.MapGet("/sample/create/images", () =>
-        {
-            int sampleSize = 1000;
-            Directory.CreateDirectory(destinationImageFolderPath);
-            for (int i = 1; i <= sampleSize; i++)
-            {
-                string destinationImagePath = Path.Combine(destinationImageFolderPath, $"image_{i}.jpg");
-                File.Copy(sampleImagePath, destinationImagePath, true);
-                Console.WriteLine($"Copied image {i}");
-            }
-
-            return $"sample {sampleSize} images created";
-        });
-        app.MapGet("/sample/create/zips", async () =>
-        {
-            await ZipImagesAsync(destinationImageFolderPath, destinationZipFolderPath, 50);
-
-            return "sample zip files created";
-        });
-        app.MapGet("/test/direct/batch", async (BlobHelper blobHelper) =>
-        {
-            string[] imageFiles = Directory.GetFiles(destinationImageFolderPath);
-
-            stopwatch.Reset();
-            stopwatch.Start();
-
-            foreach (var batch in Enumerable.Range(0, 10))
-            {
-                await UploadBatchAsync(imageFiles, batch, 100, blobHelper);
-            }
-
-            stopwatch.Stop();
-
-            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-
-            return "Images uploaded in " + elapsedSeconds + " secs";
-        });
         app.MapGet("/test/zip", async (BlobHelper blobHelper) =>
         {
             string[] imageFiles = Directory.GetFiles(destinationImageFolderPath);
@@ -149,12 +112,41 @@ internal class Program
 
             return "Images uploaded in " + elapsedSeconds + " secs";
         });
+        app.MapGet("/test/direct/batch", async (BlobHelper blobHelper) =>
+        {
+            //CreateSampleImages(sampleImagePath, destinationImageFolderPath, 1000);
+            //await UploadBatchAsync(1, 10, 100, blobHelper);
+            //await UploadBatchAsync(2, 20, 50, blobHelper);
+            //await UploadBatchAsync(3, 50, 20, blobHelper);
+            //await UploadBatchAsync(4, 100, 10, blobHelper);
+            //await UploadBatchAsync(5, 200, 5, blobHelper);
+            await UploadBatchAsync(6, 1000, 1, blobHelper);
+
+            return "Test completed";
+        });
         app.MapGet("/test/zip/batch", async (BlobHelper blobHelper) =>
         {
+            //CreateSampleImages(sampleImagePath, destinationImageFolderPath, 1000);
+            await ZipAndUploadSampleAsync(1, 10, blobHelper);
+            await ZipAndUploadSampleAsync(2, 20, blobHelper);
+            await ZipAndUploadSampleAsync(3, 50, blobHelper);
+            await ZipAndUploadSampleAsync(4, 100, blobHelper);
+
+            return "Test completed";
+        });
+
+        app.Run();
+
+        async Task ZipAndUploadSampleAsync(int id, int filesPerZip, BlobHelper blobHelper)
+        {
+            var destinationZipFolder = $"{destinationZipFolderPath}{filesPerZip}\\";
+
+            await ZipImagesAsync(destinationImageFolderPath, destinationZipFolder, filesPerZip);
+
+            string[] zipFiles = Directory.GetFiles(destinationZipFolder);
+
             stopwatch.Reset();
             stopwatch.Start();
-
-            string[] zipFiles = Directory.GetFiles(destinationZipFolderPath);
 
             var tasks = zipFiles.Select(path => UploadToBlobStorageAsync(path, blobHelper));
             await Task.WhenAll(tasks);
@@ -163,30 +155,54 @@ internal class Program
 
             double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
 
-            return "Images uploaded in " + elapsedSeconds + " secs";
-        });
+            Console.WriteLine($"Sample {id}: Uploaded {tasks.Count()} zips, {filesPerZip} files per zip -> Time taken: {elapsedSeconds} secs");
 
-        app.Run();
+            //Directory.Delete(destinationZipFolder, recursive: true);
+        }
+
+        async Task UploadBatchAsync(int id, int take, int batchSize, BlobHelper blobHelper)
+        {
+            string[] imageFiles = Directory.GetFiles(destinationImageFolderPath);
+            stopwatch.Reset();
+            stopwatch.Start();
+
+            foreach (var batch in Enumerable.Range(0, batchSize))
+            {
+                var tasks = imageFiles.Take(new Range(batch, batch + take)).Select(path => UploadToBlobStorageAsync(path, blobHelper));
+                //Console.WriteLine("Uploading " + tasks.Count() + " images");
+                await Task.WhenAll(tasks);
+            }
+
+            stopwatch.Stop();
+
+            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+
+            Console.WriteLine($"Sample {id}: Uploaded {batchSize} batches, {take} files per batch -> Time taken: {elapsedSeconds} secs");
+        }
     }
 
-    private static async Task UploadBatchAsync(string[] imageFiles, int start, int take, BlobHelper blobHelper)
+    private static void CreateSampleImages(string sampleImagePath, string destinationImageFolderPath, int sampleSize)
     {
-        var tasks = imageFiles.Take(new Range(start, start + take)).Select(path => UploadToBlobStorageAsync(path, blobHelper));
-        Console.WriteLine("Uploading " + tasks.Count() + " images");
-        await Task.WhenAll(tasks);
+        Directory.CreateDirectory(destinationImageFolderPath);
+        for (int i = 1; i <= sampleSize; i++)
+        {
+            string destinationImagePath = Path.Combine(destinationImageFolderPath, $"image_{i}.jpg");
+            File.Copy(sampleImagePath, destinationImagePath, true);
+            //Console.WriteLine($"Copied image {i}");
+        }
     }
 
     private static async Task UploadToBlobStorageAsync(string filePath, BlobHelper blobHelper)
     {
         string fileName = Path.GetFileName(filePath);
-        Console.WriteLine("Uploading file " + fileName);
+        //Console.WriteLine("Uploading file " + fileName);
 
 
         BlobClient blobClient = blobHelper.GetBlobClient(fileName);
         try
         {
             FileStream fs = File.OpenRead(filePath);
-            await blobClient.UploadAsync(fs, false);
+            await blobClient.UploadAsync(fs, true);
             fs.Dispose();
         }
         catch (RequestFailedException ex)
@@ -223,22 +239,15 @@ internal class Program
     {
         string zipFilePath = Path.Combine(destinationZipFolderPath, $"batch_{zipIndex}.zip");
 
-        using (FileStream zipToOpen = new FileStream(zipFilePath, FileMode.Create))
+        using var zipToOpen = new FileStream(zipFilePath, FileMode.Create);
+        using var archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create);
+        foreach (string imageFile in imageFiles)
         {
-            using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
-            {
-                foreach (string imageFile in imageFiles)
-                {
-                    string entryName = Path.GetFileName(imageFile);
-                    await Task.Run(() =>
-                    {
-                        archive.CreateEntryFromFile(imageFile, entryName);
-                    });
-                }
-            }
+            string entryName = Path.GetFileName(imageFile);
+            await Task.Run(() => archive.CreateEntryFromFile(imageFile, entryName));
         }
 
-        Console.WriteLine($"Batch {zipIndex} zipped successfully.");
+        //Console.WriteLine($"Batch {zipIndex} zipped successfully.");
     }
 }
 

@@ -7,7 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sample", "Sample\Sample.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FormBuilder", "FormBuilder\FormBuilder.csproj", "{8B6CC11A-302F-4BB4-94BF-5D55AAD0D1D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastUploader", "FastUploader\FastUploader.csproj", "{A776F436-9618-4CC1-A2FB-A47B5878B2D9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastUploader", "FastUploader\FastUploader.csproj", "{A776F436-9618-4CC1-A2FB-A47B5878B2D9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
